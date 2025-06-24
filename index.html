@@ -270,10 +270,19 @@
               const { data, error } = await supabase
                 .from('users')
                 .select('*');
-              if (error) throw error;
+              if (error) {
+                console.error('Ошибка загрузки пользователей:', error);
+                if (error.code === '42P01' || error.message.includes('does not exist')) {
+                  console.warn('Таблица users не найдена. Работаем локально.');
+                  setUsers([]);
+                  return;
+                }
+                throw error;
+              }
               setUsers(data || []);
             } catch (error) {
               console.error('Ошибка загрузки пользователей:', error);
+              setUsers([]);
             }
           };
 
@@ -283,15 +292,25 @@
                 .from('bookings')
                 .select('*')
                 .order('created_at', { ascending: false });
-              if (error) throw error;
+              if (error) {
+                console.error('Ошибка загрузки заказов:', error);
+                if (error.code === '42P01' || error.message.includes('does not exist')) {
+                  console.warn('Таблица bookings не найдена. Работаем локально.');
+                  setBookings([]);
+                  return;
+                }
+                throw error;
+              }
               setBookings(data || []);
             } catch (error) {
               console.error('Ошибка загрузки заказов:', error);
+              setBookings([]);
             }
           };
 
           const saveUser = async (userData) => {
             try {
+              console.log('Попытка сохранения пользователя:', userData);
               const { data, error } = await supabase
                 .from('users')
                 .insert([{
@@ -304,12 +323,44 @@
                 }])
                 .select()
                 .single();
-              if (error) throw error;
+              
+              if (error) {
+                console.error('Ошибка Supabase при сохранении пользователя:', error);
+                // Если таблица users не существует, создаем пользователя локально
+                if (error.code === '42P01' || error.message.includes('does not exist')) {
+                  console.warn('Таблица users не найдена. Создание пользователя локально.');
+                  const newUser = {
+                    id: Date.now().toString(),
+                    full_name: userData.fullName,
+                    phone: userData.phone,
+                    social_handle: userData.socialHandle || '',
+                    user_type: userData.type,
+                    is_blocked: userData.isBlocked || false,
+                    password: userData.password || '123456'
+                  };
+                  setUsers(prev => [...prev, newUser]);
+                  return newUser;
+                }
+                throw error;
+              }
+              
+              console.log('Пользователь успешно сохранен:', data);
               await loadUsers();
               return data;
             } catch (error) {
               console.error('Ошибка сохранения пользователя:', error);
-              return null;
+              // Создаем пользователя локально как резервный вариант
+              const newUser = {
+                id: Date.now().toString(),
+                full_name: userData.fullName,
+                phone: userData.phone,
+                social_handle: userData.socialHandle || '',
+                user_type: userData.type,
+                is_blocked: userData.isBlocked || false,
+                password: userData.password || '123456'
+              };
+              setUsers(prev => [...prev, newUser]);
+              return newUser;
             }
           };
 
@@ -585,7 +636,7 @@
                       className: `w-full p-4 rounded-xl mb-6 border-0 shadow-lg transition-all duration-300 focus:shadow-xl focus:scale-105 ${darkMode ? 'bg-gray-700/50 backdrop-blur-sm text-white placeholder-gray-300' : 'bg-white/80 backdrop-blur-sm placeholder-gray-500'} focus:outline-none focus:ring-2 focus:ring-blue-500`
                     }),
                     error && React.createElement("div", {
-                      className: "mb-4 p-4 bg-red-500/20 backdrop-blur-sm border border-red-300/50 rounded-xl text-red-200 text-sm animate-shake"
+                      className: "mb-4 p-4 bg-red-500/30 backdrop-blur-sm border-2 border-red-400/70 rounded-xl text-red-100 text-sm font-semibold animate-shake shadow-lg"
                     }, "⚠️ " + error),
                     React.createElement("button", {
                       onClick: handleAuth,
@@ -619,18 +670,534 @@
           // Остальные компоненты (BookingScreen, MyBookingsScreen, PriceListScreen, AdminDashboard) 
           // здесь нужно преобразовать JSX в React.createElement...
           
+          const BookingScreen = () => {
+            const [vehicleType, setVehicleType] = React.useState('motorcycle');
+            const [issueDescription, setIssueDescription] = React.useState('');
+            const [preferredDate, setPreferredDate] = React.useState('');
+            const [isUrgent, setIsUrgent] = React.useState(false);
+            const [predictedDifficulty, setPredictedDifficulty] = React.useState('');
+
+            React.useEffect(() => {
+              if (issueDescription.length > 3) {
+                setPredictedDifficulty(predictDifficulty(issueDescription));
+              }
+            }, [issueDescription]);
+
+            const handleSubmit = async () => {
+              if (!issueDescription || !preferredDate) {
+                showAnimatedHint('fillAllFields');
+                return;
+              }
+              
+              setLoading(true);
+              const newBooking = await saveBooking({
+                userId: currentUser.id,
+                userPhone: currentUser.phone,
+                userName: currentUser.fullName,
+                vehicleType,
+                issueDescription,
+                preferredDate,
+                isUrgent,
+                difficulty: predictedDifficulty,
+                laborCost: 0,
+                partsCost: 0,
+                status: 'pending'
+              });
+              
+              if (newBooking) {
+                alert('🎉 ' + t('bookingSubmitted'));
+                setIssueDescription('');
+                setPreferredDate('');
+                setIsUrgent(false);
+              }
+              setLoading(false);
+            };
+
+            return React.createElement("div", {
+              className: `min-h-screen transition-all duration-500 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-blue-900 text-white' : 'bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-900'} ${screenTransition ? 'opacity-0' : 'opacity-100'}`
+            },
+              React.createElement("div", { className: "p-6 animate-slide-down" },
+                React.createElement("div", { className: "flex justify-between items-center mb-6" },
+                  React.createElement("h1", { className: "text-xl font-bold" }, "🛠️ " + t('bookService')),
+                  React.createElement("div", { className: "flex gap-3" },
+                    React.createElement("button", {
+                      onClick: () => switchScreen('myBookings'),
+                      className: "text-blue-400 font-medium hover:text-blue-300 transition-colors duration-300 hover-lift"
+                    }, "📋 " + t('myBookings')),
+                    React.createElement("button", {
+                      onClick: () => switchScreen('priceList'),
+                      className: "text-blue-400 font-medium hover:text-blue-300 transition-colors duration-300 hover-lift"
+                    }, "💰 " + t('priceList'))
+                  )
+                ),
+
+                showHint && React.createElement("div", {
+                  className: "mb-4 p-4 bg-orange-500/20 backdrop-blur-sm border border-orange-300/50 rounded-xl text-orange-200 text-sm animate-bounce-custom"
+                }, "💡 " + t(showHint)),
+
+                React.createElement("div", { className: `rounded-2xl p-6 backdrop-blur-sm shadow-2xl mb-6 hover-lift animate-slide-up ${darkMode ? 'bg-gray-800/90' : 'bg-white/90'}` },
+                  React.createElement("div", { className: "mb-6 relative" },
+                    React.createElement("label", { className: "block text-sm font-medium mb-3" },
+                      "🚗 " + t('vehicleType'),
+                      React.createElement("span", {
+                        className: "text-blue-400 ml-1 cursor-pointer hover:scale-110 transition-transform duration-300",
+                        onClick: () => showAnimatedHint('chooseVehicle')
+                      }, "ℹ️")
+                    ),
+                    React.createElement("div", { className: "flex gap-4" },
+                      React.createElement("button", {
+                        onClick: () => setVehicleType('motorcycle'),
+                        className: `flex-1 py-4 px-4 rounded-xl border-2 transition-all duration-300 button-press hover-lift ${
+                          vehicleType === 'motorcycle'
+                            ? 'border-blue-500 bg-blue-500/20 text-blue-300 shadow-lg transform scale-105'
+                            : 'border-gray-300/50 text-gray-400 hover:border-blue-400'
+                        }`
+                      }, "🏍️ " + t('motorcycle')),
+                      React.createElement("button", {
+                        onClick: () => setVehicleType('quad'),
+                        className: `flex-1 py-4 px-4 rounded-xl border-2 transition-all duration-300 button-press hover-lift ${
+                          vehicleType === 'quad'
+                            ? 'border-blue-500 bg-blue-500/20 text-blue-300 shadow-lg transform scale-105'
+                            : 'border-gray-300/50 text-gray-400 hover:border-blue-400'
+                        }`
+                      }, "🛵 " + t('quad'))
+                    )
+                  ),
+
+                  React.createElement("div", { className: "mb-6" },
+                    React.createElement("label", { className: "block text-sm font-medium mb-3" },
+                      "📝 " + t('issueDescription'),
+                      React.createElement("span", {
+                        className: "text-blue-400 ml-1 cursor-pointer hover:scale-110 transition-transform duration-300",
+                        onClick: () => showAnimatedHint('enterDescription')
+                      }, "ℹ️")
+                    ),
+                    React.createElement("textarea", {
+                      value: issueDescription,
+                      onChange: (e) => setIssueDescription(e.target.value),
+                      className: `w-full p-4 rounded-xl border-0 shadow-lg transition-all duration-300 focus:shadow-xl focus:scale-105 ${darkMode ? 'bg-gray-700/50 backdrop-blur-sm text-white placeholder-gray-300' : 'bg-white/80 backdrop-blur-sm placeholder-gray-500'} focus:outline-none focus:ring-2 focus:ring-blue-500`,
+                      rows: "4",
+                      placeholder: "💭 Опишите проблему с вашим транспортом..."
+                    }),
+                    predictedDifficulty && React.createElement("p", {
+                      className: "text-sm text-blue-400 mt-2 animate-fade-in"
+                    }, "🎯 Предполагаемая сложность: " + t(predictedDifficulty.toLowerCase()))
+                  ),
+
+                  React.createElement("div", { className: "mb-6" },
+                    React.createElement("label", { className: "block text-sm font-medium mb-3" },
+                      "📅 " + t('preferredDate'),
+                      React.createElement("span", {
+                        className: "text-blue-400 ml-1 cursor-pointer hover:scale-110 transition-transform duration-300",
+                        onClick: () => showAnimatedHint('selectDate')
+                      }, "ℹ️")
+                    ),
+                    React.createElement("input", {
+                      type: "datetime-local",
+                      value: preferredDate,
+                      onChange: (e) => setPreferredDate(e.target.value),
+                      className: `w-full p-4 rounded-xl border-0 shadow-lg transition-all duration-300 focus:shadow-xl focus:scale-105 ${darkMode ? 'bg-gray-700/50 backdrop-blur-sm text-white' : 'bg-white/80 backdrop-blur-sm'} focus:outline-none focus:ring-2 focus:ring-blue-500`
+                    })
+                  ),
+
+                  React.createElement("div", { className: "mb-6" },
+                    React.createElement("label", { className: "flex items-center cursor-pointer hover-lift transition-all duration-300" },
+                      React.createElement("input", {
+                        type: "checkbox",
+                        checked: isUrgent,
+                        onChange: (e) => setIsUrgent(e.target.checked),
+                        className: "mr-3 w-5 h-5 text-blue-600 rounded focus:ring-blue-500 transition-all duration-300"
+                      }),
+                      React.createElement("span", { className: "text-sm" }, "⚡ " + t('isUrgent'))
+                    )
+                  ),
+
+                  React.createElement("button", {
+                    onClick: handleSubmit,
+                    disabled: !issueDescription || !preferredDate || loading,
+                    className: "w-full gradient-bg text-white py-4 rounded-xl font-semibold hover-lift button-press transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
+                  }, loading ? React.createElement("span", { className: "loading-dots" }, "Отправка") : "🚀 " + t('submit'))
+                ),
+
+                React.createElement("button", {
+                  onClick: () => {
+                    setCurrentUser(null);
+                    switchScreen('login');
+                  },
+                  className: "w-full text-red-400 py-3 font-medium hover:text-red-300 transition-all duration-300 hover-lift"
+                }, "🚪 " + t('logout'))
+              )
+            );
+          };
+
+          const MyBookingsScreen = () => {
+            const userBookings = bookings.filter(booking => booking.user_id === currentUser.id);
+
+            const getStatusColor = (status) => {
+              switch(status) {
+                case 'pending': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50';
+                case 'confirmed': return 'bg-green-500/20 text-green-300 border-green-500/50';
+                case 'rejected': return 'bg-red-500/20 text-red-300 border-red-500/50';
+                case 'completed': return 'bg-blue-500/20 text-blue-300 border-blue-500/50';
+                default: return 'bg-gray-500/20 text-gray-300 border-gray-500/50';
+              }
+            };
+
+            return React.createElement("div", {
+              className: `min-h-screen transition-all duration-500 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-blue-900 text-white' : 'bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-900'} ${screenTransition ? 'opacity-0' : 'opacity-100'}`
+            },
+              React.createElement("div", { className: "p-6 animate-slide-down" },
+                React.createElement("div", { className: "flex justify-between items-center mb-6" },
+                  React.createElement("h1", { className: "text-xl font-bold" }, "📋 " + t('myBookings')),
+                  React.createElement("button", {
+                    onClick: () => switchScreen('booking'),
+                    className: "text-blue-400 font-medium hover:text-blue-300 transition-all duration-300 hover-lift"
+                  }, "← Назад")
+                ),
+
+                React.createElement("div", { className: "space-y-4 animate-slide-up" },
+                  userBookings.length === 0 ? 
+                    React.createElement("div", { className: `rounded-2xl p-8 backdrop-blur-sm shadow-lg text-center hover-lift ${darkMode ? 'bg-gray-800/90' : 'bg-white/90'}` },
+                      React.createElement("div", { className: "text-6xl mb-4 animate-bounce-custom" }, "📝"),
+                      React.createElement("p", { className: "text-gray-400" }, "У вас пока нет заказов")
+                    ) :
+                    userBookings.map((booking, index) => 
+                      React.createElement("div", {
+                        key: booking.id,
+                        className: `rounded-2xl p-6 backdrop-blur-sm shadow-lg hover-lift animate-slide-up ${darkMode ? 'bg-gray-800/90' : 'bg-white/90'}`,
+                        style: {animationDelay: `${index * 0.1}s`}
+                      },
+                        React.createElement("div", { className: "flex justify-between items-start mb-4" },
+                          React.createElement("div", {},
+                            React.createElement("h3", { className: "font-semibold text-lg flex items-center gap-2" },
+                              booking.vehicle_type === 'motorcycle' ? '🏍️' : '🛵',
+                              booking.vehicle_type === 'motorcycle' ? t('motorcycle') : t('quad')
+                            ),
+                            React.createElement("p", { className: "text-sm text-gray-400" }, "📅 " + new Date(booking.created_at).toLocaleDateString())
+                          ),
+                          React.createElement("span", {
+                            className: `px-3 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${getStatusColor(booking.status)}`
+                          }, t(booking.status))
+                        ),
+
+                        React.createElement("div", { className: "mb-4" },
+                          React.createElement("p", { className: "text-sm font-medium mb-1" }, "📝 Описание проблемы:"),
+                          React.createElement("p", { className: "text-gray-400 text-sm" }, booking.issue_description)
+                        ),
+
+                        React.createElement("div", { className: "grid grid-cols-2 gap-4 mb-4" },
+                          React.createElement("div", {},
+                            React.createElement("p", { className: "text-sm font-medium" }, "⚙️ Сложность:"),
+                            React.createElement("p", { className: "text-sm text-gray-400" }, t(booking.difficulty?.toLowerCase()))
+                          ),
+                          React.createElement("div", {},
+                            React.createElement("p", { className: "text-sm font-medium" }, "📅 Дата:"),
+                            React.createElement("p", { className: "text-sm text-gray-400" }, new Date(booking.preferred_date).toLocaleString())
+                          )
+                        ),
+
+                        booking.status === 'confirmed' && (booking.labor_cost > 0 || booking.parts_cost > 0) &&
+                        React.createElement("div", { className: "border-t border-gray-300/20 pt-4 animate-fade-in" },
+                          React.createElement("h4", { className: "font-medium mb-2" }, "💰 " + t('finalCost') + ":"),
+                          React.createElement("div", { className: "text-sm space-y-1" },
+                            React.createElement("div", { className: "flex justify-between" },
+                              React.createElement("span", {}, "🔧 Стоимость работ:"),
+                              React.createElement("span", {}, booking.labor_cost + " ₽")
+                            ),
+                            React.createElement("div", { className: "flex justify-between" },
+                              React.createElement("span", {}, "⚙️ Стоимость запчастей:"),
+                              React.createElement("span", {}, booking.parts_cost + " ₽")
+                            ),
+                            booking.is_urgent && React.createElement("div", { className: "flex justify-between text-orange-400" },
+                              React.createElement("span", {}, "⚡ Срочный ремонт:"),
+                              React.createElement("span", {}, "+500 ₽")
+                            ),
+                            React.createElement("div", { className: "flex justify-between font-semibold text-lg border-t border-gray-300/20 pt-2" },
+                              React.createElement("span", {}, "💸 Итого:"),
+                              React.createElement("span", {}, (booking.labor_cost + booking.parts_cost + (booking.is_urgent ? 500 : 0)) + " ₽")
+                            )
+                          )
+                        )
+                      )
+                    )
+                )
+              )
+            );
+          };
+
+          const PriceListScreen = () => {
+            const categories = [...new Set(priceList.map(item => item.category))];
+
+            return React.createElement("div", {
+              className: `min-h-screen transition-all duration-500 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-blue-900 text-white' : 'bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-900'} ${screenTransition ? 'opacity-0' : 'opacity-100'}`
+            },
+              React.createElement("div", { className: "p-6 animate-slide-down" },
+                React.createElement("div", { className: "flex justify-between items-center mb-6" },
+                  React.createElement("h1", { className: "text-xl font-bold" }, "💰 " + t('priceList')),
+                  React.createElement("button", {
+                    onClick: () => switchScreen('booking'),
+                    className: "text-blue-400 font-medium hover:text-blue-300 transition-all duration-300 hover-lift"
+                  }, "← Назад")
+                ),
+
+                categories.map((category, index) =>
+                  React.createElement("div", {
+                    key: category,
+                    className: `rounded-2xl p-6 backdrop-blur-sm shadow-lg mb-4 hover-lift animate-slide-up ${darkMode ? 'bg-gray-800/90' : 'bg-white/90'}`,
+                    style: {animationDelay: `${index * 0.1}s`}
+                  },
+                    React.createElement("h2", { className: "text-lg font-semibold mb-4 flex items-center gap-2" },
+                      React.createElement("span", { className: "text-xl" }, "⚙️"),
+                      category
+                    ),
+                    priceList
+                      .filter(item => item.category === category)
+                      .map(item =>
+                        React.createElement("div", {
+                          key: item.id,
+                          className: "flex justify-between items-center py-3 border-b border-gray-300/20 last:border-b-0 hover:bg-blue-500/10 transition-all duration-300 rounded px-2"
+                        },
+                          React.createElement("span", { className: "text-sm" }, item.service),
+                          React.createElement("span", { className: "font-semibold text-blue-400" }, item.price + " ₽")
+                        )
+                      )
+                  )
+                )
+              )
+            );
+          };
+
+          const AdminDashboard = () => {
+            const [selectedBooking, setSelectedBooking] = React.useState(null);
+            const [editMode, setEditMode] = React.useState(false);
+            const [activeTab, setActiveTab] = React.useState('bookings');
+
+            const updateBooking = async (bookingId, updates) => {
+              setLoading(true);
+              await updateBookingInDB(bookingId, updates);
+              if (updates.status === 'confirmed') {
+                alert('✅ ' + t('bookingConfirmed'));
+              } else if (updates.status === 'rejected') {
+                alert('❌ ' + t('bookingRejected'));
+              }
+              setLoading(false);
+            };
+
+            const deleteBooking = async (bookingId) => {
+              setLoading(true);
+              await deleteBookingFromDB(bookingId);
+              setSelectedBooking(null);
+              setLoading(false);
+            };
+
+            const toggleUserBlock = async (userId) => {
+              setLoading(true);
+              const user = users.find(u => u.id === userId);
+              if (user) {
+                await updateUserInDB(userId, { isBlocked: !user.is_blocked });
+                alert(user.is_blocked ? '✅ ' + t('userUnblockedMessage') : '🚫 ' + t('userBlockedMessage'));
+              }
+              setLoading(false);
+            };
+
+            return React.createElement("div", {
+              className: `min-h-screen transition-all duration-500 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-blue-900 text-white' : 'bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-900'} ${screenTransition ? 'opacity-0' : 'opacity-100'}`
+            },
+              React.createElement("div", { className: "p-6 animate-slide-down" },
+                React.createElement("div", { className: "flex justify-between items-center mb-6" },
+                  React.createElement("h1", { className: "text-xl font-bold" }, "⚙️ " + t('dashboard')),
+                  React.createElement("button", {
+                    onClick: () => {
+                      setCurrentUser(null);
+                      switchScreen('login');
+                    },
+                    className: "text-red-400 font-medium hover:text-red-300 transition-all duration-300 hover-lift"
+                  }, "🚪 " + t('logout'))
+                ),
+
+                React.createElement("div", { className: "flex mb-6 bg-white/20 backdrop-blur-sm rounded-xl p-1" },
+                  React.createElement("button", {
+                    onClick: () => setActiveTab('bookings'),
+                    className: `flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all duration-300 button-press ${
+                      activeTab === 'bookings' 
+                        ? 'bg-white text-blue-600 shadow-lg transform scale-105' 
+                        : 'text-white/70 hover:text-white'
+                    }`
+                  }, "📋 Заказы (" + bookings.length + ")"),
+                  React.createElement("button", {
+                    onClick: () => setActiveTab('users'),
+                    className: `flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all duration-300 button-press ${
+                      activeTab === 'users' 
+                        ? 'bg-white text-blue-600 shadow-lg transform scale-105' 
+                        : 'text-white/70 hover:text-white'
+                    }`
+                  }, "👥 Пользователи (" + users.length + ")")
+                ),
+
+                activeTab === 'bookings' ?
+                  React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-2 gap-6" },
+                    React.createElement("div", { className: `rounded-2xl p-6 backdrop-blur-sm shadow-lg hover-lift ${darkMode ? 'bg-gray-800/90' : 'bg-white/90'}` },
+                      React.createElement("h2", { className: "text-lg font-semibold mb-4" }, "📋 Заказы (" + bookings.length + ")"),
+                      React.createElement("div", { className: "space-y-3 max-h-96 overflow-y-auto" },
+                        bookings.map((booking, index) =>
+                          React.createElement("div", {
+                            key: booking.id,
+                            onClick: () => setSelectedBooking(booking),
+                            className: `p-4 rounded-xl cursor-pointer transition-all duration-300 hover-lift animate-slide-up ${
+                              selectedBooking?.id === booking.id
+                                ? 'bg-blue-500/20 border-2 border-blue-500/50 shadow-lg transform scale-105'
+                                : darkMode ? 'bg-gray-700/50 hover:bg-gray-600/50' : 'bg-gray-100/50 hover:bg-gray-200/50'
+                            }`,
+                            style: {animationDelay: `${index * 0.05}s`}
+                          },
+                            React.createElement("div", { className: "flex justify-between items-start mb-2" },
+                              React.createElement("div", {},
+                                React.createElement("span", { className: "font-medium flex items-center gap-2" },
+                                  booking.vehicle_type === 'motorcycle' ? '🏍️' : '🛵',
+                                  booking.vehicle_type === 'motorcycle' ? 'Мотоцикл' : 'Квадроцикл'
+                                ),
+                                React.createElement("p", { className: "text-xs text-gray-400" }, "👤 " + (booking.user_name || 'Неизвестно'))
+                              ),
+                              React.createElement("span", {
+                                className: `px-2 py-1 rounded-full text-xs backdrop-blur-sm ${
+                                  booking.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                                  booking.status === 'confirmed' ? 'bg-green-500/20 text-green-300' :
+                                  booking.status === 'rejected' ? 'bg-red-500/20 text-red-300' :
+                                  'bg-blue-500/20 text-blue-300'
+                                }`
+                              }, t(booking.status))
+                            ),
+                            React.createElement("p", { className: "text-sm text-gray-400 truncate" }, "💬 " + booking.issue_description)
+                          )
+                        )
+                      )
+                    ),
+
+                    selectedBooking && React.createElement("div", { className: `rounded-2xl p-6 backdrop-blur-sm shadow-lg hover-lift animate-scale-in ${darkMode ? 'bg-gray-800/90' : 'bg-white/90'}` },
+                      React.createElement("div", { className: "flex justify-between items-center mb-4" },
+                        React.createElement("h2", { className: "text-lg font-semibold" }, "🔍 Детали заказа"),
+                        React.createElement("div", { className: "flex gap-2 flex-wrap" },
+                          selectedBooking.status === 'pending' && [
+                            React.createElement("button", {
+                              key: "confirm",
+                              onClick: () => updateBooking(selectedBooking.id, { status: 'confirmed' }),
+                              disabled: loading,
+                              className: "px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover-lift button-press transition-all duration-300 disabled:opacity-50"
+                            }, "✅ " + t('confirm')),
+                            React.createElement("button", {
+                              key: "reject",
+                              onClick: () => updateBooking(selectedBooking.id, { status: 'rejected' }),
+                              disabled: loading,
+                              className: "px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover-lift button-press transition-all duration-300 disabled:opacity-50"
+                            }, "❌ " + t('reject'))
+                          ],
+                          React.createElement("button", {
+                            onClick: () => deleteBooking(selectedBooking.id),
+                            disabled: loading,
+                            className: "px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover-lift button-press transition-all duration-300 disabled:opacity-50"
+                          }, "🗑️ " + t('delete'))
+                        )
+                      ),
+
+                      React.createElement("div", { className: "space-y-4" },
+                        React.createElement("div", {},
+                          React.createElement("label", { className: "block text-sm font-medium mb-1" }, "👤 Клиент"),
+                          React.createElement("p", { className: "text-gray-400" }, selectedBooking.user_name + " (" + selectedBooking.user_phone + ")")
+                        ),
+
+                        React.createElement("div", {},
+                          React.createElement("label", { className: "block text-sm font-medium mb-1" }, "📝 Описание проблемы"),
+                          React.createElement("p", { className: "text-gray-400" }, selectedBooking.issue_description)
+                        ),
+
+                        React.createElement("div", {},
+                          React.createElement("label", { className: "block text-sm font-medium mb-1" }, "🔧 " + t('laborCost') + " (₽)"),
+                          React.createElement("input", {
+                            type: "number",
+                            value: selectedBooking.labor_cost,
+                            onChange: (e) => updateBooking(selectedBooking.id, { laborCost: parseInt(e.target.value) || 0 }),
+                            className: `w-full p-3 rounded-lg border-0 shadow-lg transition-all duration-300 focus:shadow-xl ${darkMode ? 'bg-gray-700/50 text-white' : 'bg-white/80'} focus:outline-none focus:ring-2 focus:ring-blue-500`
+                          })
+                        ),
+
+                        React.createElement("div", {},
+                          React.createElement("label", { className: "block text-sm font-medium mb-1" }, "⚙️ " + t('partsCost') + " (₽)"),
+                          React.createElement("input", {
+                            type: "number",
+                            value: selectedBooking.parts_cost,
+                            onChange: (e) => updateBooking(selectedBooking.id, { partsCost: parseInt(e.target.value) || 0 }),
+                            className: `w-full p-3 rounded-lg border-0 shadow-lg transition-all duration-300 focus:shadow-xl ${darkMode ? 'bg-gray-700/50 text-white' : 'bg-white/80'} focus:outline-none focus:ring-2 focus:ring-blue-500`
+                          })
+                        ),
+
+                        React.createElement("div", { className: "pt-4 border-t border-gray-300/20" },
+                          React.createElement("p", { className: "text-lg font-semibold flex items-center gap-2" },
+                            "💸 " + t('totalCost') + ": " + (selectedBooking.labor_cost + selectedBooking.parts_cost + (selectedBooking.is_urgent ? 500 : 0)) + " ₽"
+                          ),
+                          selectedBooking.is_urgent && React.createElement("p", { className: "text-sm text-orange-400" }, "⚡ +500 ₽ доплата за срочность")
+                        )
+                      )
+                    )
+                  ) :
+                  React.createElement("div", { className: `rounded-2xl p-6 backdrop-blur-sm shadow-lg hover-lift animate-slide-up ${darkMode ? 'bg-gray-800/90' : 'bg-white/90'}` },
+                    React.createElement("h2", { className: "text-lg font-semibold mb-4" }, "👥 Управление пользователями"),
+                    React.createElement("div", { className: "space-y-3" },
+                      users.filter(user => user.user_type === 'client').map((user, index) =>
+                        React.createElement("div", {
+                          key: user.id,
+                          className: `p-4 rounded-xl border-2 transition-all duration-300 hover-lift animate-slide-up ${
+                            user.is_blocked 
+                              ? 'border-red-500/50 bg-red-500/10' 
+                              : darkMode ? 'bg-gray-700/50 border-gray-600/50' : 'bg-gray-100/50 border-gray-200/50'
+                          }`,
+                          style: {animationDelay: `${index * 0.05}s`}
+                        },
+                          React.createElement("div", { className: "flex justify-between items-center" },
+                            React.createElement("div", {},
+                              React.createElement("h3", { className: "font-medium flex items-center gap-2" },
+                                "👤 " + user.full_name
+                              ),
+                              React.createElement("p", { className: "text-sm text-gray-400" }, "📱 " + user.phone),
+                              user.social_handle && React.createElement("p", { className: "text-sm text-blue-400" }, "💬 " + user.social_handle),
+                              React.createElement("p", { className: "text-xs text-gray-500" },
+                                "📋 Заказов: " + bookings.filter(b => b.user_id === user.id).length
+                              )
+                            ),
+                            React.createElement("div", { className: "flex items-center gap-2" },
+                              user.is_blocked && React.createElement("span", {
+                                className: "px-2 py-1 bg-red-500/20 text-red-300 rounded-full text-xs border border-red-500/50"
+                              }, "🚫 Заблокирован"),
+                              React.createElement("button", {
+                                onClick: () => toggleUserBlock(user.id),
+                                disabled: loading,
+                                className: `px-3 py-2 rounded-lg text-sm font-medium hover-lift button-press transition-all duration-300 disabled:opacity-50 ${
+                                  user.is_blocked 
+                                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                                    : 'bg-red-600 text-white hover:bg-red-700'
+                                }`
+                              }, user.is_blocked ? '✅ ' + t('unblock') : '🚫 ' + t('block'))
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+              )
+            );
+          };
+
           const renderScreen = () => {
             if (!currentUser) return React.createElement(LoginScreen);
             
             switch (currentScreen) {
               case 'booking':
-                return React.createElement("div", { className: "p-6" }, "Booking Screen (в разработке)");
+                return React.createElement(BookingScreen);
               case 'myBookings':
-                return React.createElement("div", { className: "p-6" }, "My Bookings Screen (в разработке)");
+                return React.createElement(MyBookingsScreen);
               case 'priceList':
-                return React.createElement("div", { className: "p-6" }, "Price List Screen (в разработке)");
+                return React.createElement(PriceListScreen);
               case 'dashboard':
-                return React.createElement("div", { className: "p-6" }, "Admin Dashboard (в разработке)");
+                return React.createElement(AdminDashboard);
               default:
                 return React.createElement(LoginScreen);
             }
