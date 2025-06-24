@@ -1,763 +1,1061 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoService - Сервис мотоциклов и квадроциклов</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body>
-    <div id="root"></div>
-    <script type="text/babel">
-        const { createClient } = window.supabase;
-        
-        // ВАЖНО: Замените на ваши реальные ключи!
-        const supabaseUrl = 'https://texmkfeivjohgjydsrbf.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRleG1rZmVpdmpvaGdqeWRzcmJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3Njk0MzUsImV4cCI6MjA2NjM0NTQzNX0.Obn57enzqPd5IdGkSsjfVhZOB_xTbn3BLxOHOfuLP1w';
-        const supabase = createClient(supabaseUrl, supabaseKey);
+    // ВАЖНО: Замените на ваши реальные ключи!
+    const supabaseUrl = 'https://texmkfeivjohgjydsrbf.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRleG1rZmVpdmpvaGdqeWRzcmJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3Njk0MzUsImV4cCI6MjA2NjM0NTQzNX0.Obn57enzqPd5IdGkSsjfVhZOB_xTbn3BLxOHOfuLP1w';
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-        // Заглушка для hatch объекта
-        const hatch = {
-          useStoredState: (key, defaultValue) => {
-            const [value, setValue] = React.useState(() => {
-              try {
-                const item = localStorage.getItem(key);
-                return item ? JSON.parse(item) : defaultValue;
-              } catch {
-                return defaultValue;
-              }
+    // Заглушка для hatch объекта
+    const hatch = {
+      useStoredState: (key, defaultValue) => {
+        const [value, setValue] = React.useState(() => {
+          try {
+            const item = localStorage.getItem(key);
+            return item ? JSON.parse(item) : defaultValue;
+          } catch {
+            return defaultValue;
+          }
+        });
+
+        React.useEffect(() => {
+          localStorage.setItem(key, JSON.stringify(value));
+        }, [key, value]);
+
+        return [value, setValue];
+      }
+    };
+
+    const MotoServiceApp = () => {
+      const [currentScreen, setCurrentScreen] = React.useState('login');
+      const [userType, setUserType] = React.useState('client');
+      const [darkMode, setDarkMode] = React.useState(false);
+      const [language, setLanguage] = React.useState('ru');
+      const [showHint, setShowHint] = React.useState('');
+      const [currentUser, setCurrentUser] = hatch.useStoredState('currentUser', null);
+      const [bookings, setBookings] = React.useState([]);
+      const [users, setUsers] = React.useState([]);
+      const [priceList, setPriceList] = hatch.useStoredState('priceList', [
+        { id: 1, category: 'Тюнинг', service: 'Установка стоп-сигнала', price: 300 },
+        { id: 2, category: 'Тюнинг', service: 'Защита рук установка', price: 700 },
+        { id: 3, category: 'Тюнинг', service: 'Счетчик мотоцасов установка', price: 600 },
+        { id: 4, category: 'Тюнинг', service: 'Трубки для спиц установка (1 колесо)', price: 300 },
+        { id: 5, category: 'Тюнинг', service: 'Чехлы вилки установка', price: 300 },
+        { id: 6, category: 'Тюнинг', service: 'Чехол амортизатора установка', price: 200 },
+        { id: 7, category: 'Тюнинг', service: 'Наклеивание пленки', price: 500 },
+        { id: 8, category: 'Тюнинг', service: 'Графика замена', price: 700 },
+        { id: 9, category: 'Выхлопная система', service: 'Глушитель ремонт', price: 500 },
+        { id: 10, category: 'Выхлопная система', service: 'Защита двигателя установка', price: 300 },
+        { id: 11, category: 'Выхлопная система', service: 'Маятник замена подшипников', price: 1000 },
+        { id: 12, category: 'Выхлопная система', service: 'Траверсы в сборе замена', price: 1500 },
+        { id: 13, category: 'Топливная система', service: 'Карбюратор регулировка', price: 600 },
+        { id: 14, category: 'Топливная система', service: 'Карбюратор чистка', price: 300 },
+        { id: 15, category: 'Топливная система', service: 'Кран топливный замена', price: 300 },
+        { id: 16, category: 'Топливная система', service: 'Фильтр воздушный обслуживание', price: 200 },
+        { id: 17, category: 'Топливная система', service: 'Фильтр воздушный замена', price: 100 },
+        { id: 18, category: 'Электрооборудование', service: 'Аккумулятор проверка заряда', price: 100 },
+        { id: 19, category: 'Электрооборудование', service: 'Жгут проводки замена', price: 600 },
+        { id: 20, category: 'Электрооборудование', service: 'Замена ламп головного света и габаритов', price: 300 },
+        { id: 21, category: 'Электрооборудование', service: 'Замок зажигания замена', price: 200 },
+        { id: 22, category: 'Электрооборудование', service: 'Катушка зажигания замена', price: 300 },
+        { id: 23, category: 'Электрооборудование', service: 'Кнопка стоп/пуск замена', price: 200 },
+        { id: 24, category: 'Электрооборудование', service: 'Коммутатор замена', price: 200 },
+        { id: 25, category: 'Электрооборудование', service: 'Предохранитель замена', price: 100 },
+        { id: 26, category: 'Электрооборудование', service: 'Фара замена', price: 300 },
+        { id: 27, category: 'Ходовая часть', service: 'Переборка передней вилки', price: 2000 },
+        { id: 28, category: 'Ходовая часть', service: 'Амортизатор задний снятие-установка', price: 500 },
+        { id: 29, category: 'Ходовая часть', service: 'Амортизатор задний подкачка', price: 100 },
+        { id: 30, category: 'Ходовая часть', service: 'Регулировка подвески', price: 500 },
+        { id: 31, category: 'Ходовая часть', service: 'Прогрессия переборка', price: 1000 },
+        { id: 32, category: 'Ходовая часть', service: 'Замена подшипников рулевой колонки', price: 1000 },
+        { id: 33, category: 'Ходовая часть', service: 'Замена подшипников переднего колеса (смазка)', price: 500 },
+        { id: 34, category: 'Ходовая часть', service: 'Замена подшипников заднего колеса (смазка)', price: 500 },
+        { id: 35, category: 'Ходовая часть', service: 'Протяжка спиц колеса', price: 500 },
+        { id: 36, category: 'Трансмиссия/привод', service: 'Цепь приводная чистка', price: 400 },
+        { id: 37, category: 'Трансмиссия/привод', service: 'Цепь приводная регулировка', price: 100 },
+        { id: 38, category: 'Трансмиссия/привод', service: 'Цепь приводная смазка', price: 150 },
+        { id: 39, category: 'Трансмиссия/привод', service: 'Звезда ведомая замена', price: 200 },
+        { id: 40, category: 'Трансмиссия/привод', service: 'Звезда ведущая замена', price: 100 },
+        { id: 41, category: 'Трансмиссия/привод', service: 'Ловушка цепи замена', price: 100 },
+        { id: 42, category: 'Трансмиссия/привод', service: 'Ролик цепи замена', price: 100 },
+        { id: 43, category: 'Трансмиссия/привод', service: 'Слайдер цепи замена', price: 100 },
+        { id: 44, category: 'Двигатель', service: 'Переборка ГБЦ', price: 2000 },
+        { id: 45, category: 'Двигатель', service: 'Расточка ГБЦ', price: 2000 },
+        { id: 46, category: 'Двигатель', service: 'Регулировка зазоров клапанов', price: 300 },
+        { id: 47, category: 'Двигатель', service: 'Замена масла в ДВС + фильтр', price: 300 },
+        { id: 48, category: 'Двигатель', service: 'Корзина сцепления переборка (замена дисков)', price: 1000 },
+        { id: 49, category: 'Двигатель', service: 'Обгонная муфта замена', price: 500 },
+        { id: 50, category: 'Двигатель', service: 'Переборка двигателя', price: 1500 },
+        { id: 51, category: 'Двигатель', service: 'Генератор замена', price: 500 },
+        { id: 52, category: 'Двигатель', service: 'Сальник генератора замена', price: 500 },
+        { id: 53, category: 'Двигатель', service: 'ЦПГ замена', price: 1000 },
+        { id: 54, category: 'Диагностика и обслуживание', service: 'Протяжка техники', price: 1500 },
+        { id: 55, category: 'Диагностика и обслуживание', service: 'Комплексное ТО', price: 3000 },
+      ]);
+      const [issuePatterns, setIssuePatterns] = hatch.useStoredState('issuePatterns', {
+        'wheel': 'Easy',
+        'brake': 'Medium',
+        'engine': 'Hard',
+        'oil': 'Easy'
+      });
+
+      const translations = {
+        ru: {
+          login: 'Войти',
+          register: 'Регистрация',
+          phone: 'Телефон',
+          password: 'Пароль',
+          fullName: 'Полное имя',
+          bookService: 'Записаться на сервис',
+          priceList: 'Прайс-лист',
+          dashboard: 'Панель управления',
+          logout: 'Выйти',
+          vehicleType: 'Тип транспорта',
+          motorcycle: 'Мотоцикл',
+          quad: 'Квадроцикл',
+          issueDescription: 'Описание проблемы',
+          preferredDate: 'Желаемая дата',
+          isUrgent: 'Срочный ремонт (+500 руб)',
+          submit: 'Отправить',
+          edit: 'Редактировать',
+          delete: 'Удалить',
+          block: 'Заблокировать',
+          unblock: 'Разблокировать',
+          difficulty: 'Сложность',
+          easy: 'Легко',
+          medium: 'Средне',
+          hard: 'Сложно',
+          laborCost: 'Стоимость работ',
+          partsCost: 'Стоимость запчастей',
+          totalCost: 'Общая стоимость',
+          clientSide: 'Клиентская часть',
+          adminSide: 'Админ панель',
+          myBookings: 'Мои заказы',
+          bookingStatus: 'Статус заказа',
+          pending: 'В обработке',
+          confirmed: 'Подтверждён',
+          rejected: 'Отклонён',
+          completed: 'Выполнен',
+          confirm: 'Подтвердить',
+          reject: 'Отклонить',
+          finalCost: 'Итоговая стоимость',
+          bookingDetails: 'Детали заказа',
+          userBlocked: 'Пользователь заблокирован',
+          clickHint: 'Нажмите здесь',
+          fillAllFields: 'Заполните все поля',
+          chooseVehicle: 'Выберите тип транспорта',
+          enterDescription: 'Опишите проблему',
+          selectDate: 'Выберите дату и время',
+          bookingSubmitted: 'Заказ успешно отправлен!',
+          bookingConfirmed: 'Заказ подтверждён',
+          bookingRejected: 'Заказ отклонён',
+          userBlockedMessage: 'Пользователь заблокирован',
+          userUnblockedMessage: 'Пользователь разблокирован'
+        }
+      };
+
+      const t = (key) => translations[language][key] || key;
+
+      // Функции для работы с базой данных
+      const loadUsers = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .select('*');
+          if (error) throw error;
+          setUsers(data || []);
+        } catch (error) {
+          console.error('Ошибка загрузки пользователей:', error);
+        }
+      };
+
+      const loadBookings = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('bookings')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          setBookings(data || []);
+        } catch (error) {
+          console.error('Ошибка загрузки заказов:', error);
+        }
+      };
+
+      const saveUser = async (userData) => {
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .insert([{
+              full_name: userData.fullName,
+              phone: userData.phone,
+              user_type: userData.type,
+              is_blocked: userData.isBlocked || false,
+              password: userData.password || '123456'
+            }])
+            .select()
+            .single();
+          if (error) throw error;
+          await loadUsers();
+          return data;
+        } catch (error) {
+          console.error('Ошибка сохранения пользователя:', error);
+          return null;
+        }
+      };
+
+      const saveBooking = async (bookingData) => {
+        try {
+          const { data, error } = await supabase
+            .from('bookings')
+            .insert([{
+              user_id: bookingData.userId,
+              user_name: bookingData.userName,
+              user_phone: bookingData.userPhone,
+              vehicle_type: bookingData.vehicleType,
+              issue_description: bookingData.issueDescription,
+              preferred_date: bookingData.preferredDate,
+              is_urgent: bookingData.isUrgent,
+              difficulty: bookingData.difficulty,
+              labor_cost: bookingData.laborCost || 0,
+              parts_cost: bookingData.partsCost || 0,
+              status: bookingData.status || 'pending'
+            }])
+            .select()
+            .single();
+          if (error) throw error;
+          await loadBookings();
+          return data;
+        } catch (error) {
+          console.error('Ошибка сохранения заказа:', error);
+          return null;
+        }
+      };
+
+      const updateBookingInDB = async (bookingId, updates) => {
+        try {
+          const { error } = await supabase
+            .from('bookings')
+            .update({
+              status: updates.status,
+              difficulty: updates.difficulty,
+              labor_cost: updates.laborCost,
+              parts_cost: updates.partsCost
+            })
+            .eq('id', bookingId);
+          if (error) throw error;
+          await loadBookings();
+        } catch (error) {
+          console.error('Ошибка обновления заказа:', error);
+        }
+      };
+
+      const deleteBookingFromDB = async (bookingId) => {
+        try {
+          const { error } = await supabase
+            .from('bookings')
+            .delete()
+            .eq('id', bookingId);
+          if (error) throw error;
+          await loadBookings();
+        } catch (error) {
+          console.error('Ошибка удаления заказа:', error);
+        }
+      };
+
+      const updateUserInDB = async (userId, updates) => {
+        try {
+          const { error } = await supabase
+            .from('users')
+            .update({ is_blocked: updates.isBlocked })
+            .eq('id', userId);
+          if (error) throw error;
+          await loadUsers();
+        } catch (error) {
+          console.error('Ошибка обновления пользователя:', error);
+        }
+      };
+
+      // Загружаем данные при загрузке компонента
+      React.useEffect(() => {
+        loadUsers();
+        loadBookings();
+      }, []);
+
+      const showAnimatedHint = (hintKey) => {
+        setShowHint(hintKey);
+        setTimeout(() => setShowHint(''), 3000);
+      };
+
+      const predictDifficulty = (description) => {
+        const desc = description.toLowerCase();
+        for (const [pattern, difficulty] of Object.entries(issuePatterns)) {
+          if (desc.includes(pattern)) {
+            return difficulty;
+          }
+        }
+        return 'Medium';
+      };
+
+      const LoginScreen = () => {
+        const [phone, setPhone] = React.useState('');
+        const [password, setPassword] = React.useState('');
+        const [isRegister, setIsRegister] = React.useState(false);
+        const [fullName, setFullName] = React.useState('');
+        const [error, setError] = React.useState('');
+
+        // Валидация телефона
+        const validatePhone = (phone) => {
+          const phoneRegex = /^(\+7|8)?[\s\-]?\(?9\d{2}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}$/;
+          return phoneRegex.test(phone.replace(/\s/g, ''));
+        };
+
+        // Валидация пароля
+        const validatePassword = (password) => {
+          return password.length >= 6;
+        };
+
+        const handleAuth = async () => {
+          setError('');
+
+          // Валидация
+          if (!phone || !password || (isRegister && !fullName)) {
+            setError('Заполните все поля');
+            return;
+          }
+
+          if (!validatePhone(phone)) {
+            setError('Неверный формат номера телефона');
+            return;
+          }
+
+          if (!validatePassword(password)) {
+            setError('Пароль должен содержать минимум 6 символов');
+            return;
+          }
+
+          if (isRegister) {
+            // Проверяем, нет ли уже такого пользователя
+            const existingUser = users.find(u => u.phone === phone);
+            if (existingUser) {
+              setError('Пользователь с таким номером уже существует');
+              return;
+            }
+
+            const newUser = await saveUser({
+              fullName,
+              phone,
+              type: userType,
+              isBlocked: false,
+              password: password
             });
-
-            React.useEffect(() => {
-              localStorage.setItem(key, JSON.stringify(value));
-            }, [key, value]);
-
-            return [value, setValue];
+            if (newUser) {
+              setCurrentUser({
+                id: newUser.id,
+                fullName: newUser.full_name,
+                phone: newUser.phone,
+                type: newUser.user_type
+              });
+              setCurrentScreen(userType === 'admin' ? 'dashboard' : 'booking');
+            } else {
+              setError('Ошибка регистрации');
+            }
+          } else {
+            // Авторизация
+            if (userType === 'admin') {
+              // Проверяем админские права в базе данных
+              const adminUser = users.find(u => u.phone === phone && u.user_type === 'admin');
+              if (!adminUser) {
+                setError('У вас нет прав администратора');
+                return;
+              }
+              if (adminUser.is_blocked) {
+                setError(t('userBlocked'));
+                return;
+              }
+              // Проверяем пароль
+              if (adminUser.password !== password) {
+                setError('Неверный пароль');
+                return;
+              }
+              setCurrentUser({
+                id: adminUser.id,
+                fullName: adminUser.full_name,
+                phone: adminUser.phone,
+                type: adminUser.user_type
+              });
+              setCurrentScreen('dashboard');
+            } else {
+              // Обычный пользователь
+              const existingUser = users.find(u => u.phone === phone && u.user_type === 'client');
+              if (!existingUser) {
+                setError('Пользователь не найден');
+                return;
+              }
+              if (existingUser.is_blocked) {
+                setError(t('userBlocked'));
+                return;
+              }
+              if (existingUser.password !== password) {
+                setError('Неверный пароль');
+                return;
+              }
+              setCurrentUser({
+                id: existingUser.id,
+                fullName: existingUser.full_name,
+                phone: existingUser.phone,
+                type: existingUser.user_type
+              });
+              setCurrentScreen('booking');
+            }
           }
         };
 
-        const MotoServiceApp = () => {
-          const [currentScreen, setCurrentScreen] = React.useState('login');
-          const [userType, setUserType] = React.useState('client');
-          const [darkMode, setDarkMode] = React.useState(false);
-          const [language, setLanguage] = React.useState('ru');
-          const [showHint, setShowHint] = React.useState('');
-          const [currentUser, setCurrentUser] = hatch.useStoredState('currentUser', null);
-          const [bookings, setBookings] = React.useState([]);
-          const [users, setUsers] = React.useState([]);
-          const [priceList, setPriceList] = hatch.useStoredState('priceList', [
-            { id: 1, category: 'Тюнинг', service: 'Установка стоп-сигнала', price: 300 },
-            { id: 2, category: 'Тюнинг', service: 'Защита рук установка', price: 700 },
-            { id: 3, category: 'Тюнинг', service: 'Счетчик мотоцасов установка', price: 600 },
-            { id: 4, category: 'Тюнинг', service: 'Трубки для спиц установка (1 колесо)', price: 300 },
-            { id: 5, category: 'Тюнинг', service: 'Чехлы вилки установка', price: 300 },
-            { id: 6, category: 'Тюнинг', service: 'Чехол амортизатора установка', price: 200 },
-            { id: 7, category: 'Тюнинг', service: 'Наклеивание пленки', price: 500 },
-            { id: 8, category: 'Тюнинг', service: 'Графика замена', price: 700 },
-            { id: 9, category: 'Выхлопная система', service: 'Глушитель ремонт', price: 500 },
-            { id: 10, category: 'Выхлопная система', service: 'Защита двигателя установка', price: 300 },
-            { id: 11, category: 'Выхлопная система', service: 'Маятник замена подшипников', price: 1000 },
-            { id: 12, category: 'Выхлопная система', service: 'Траверсы в сборе замена', price: 1500 },
-            { id: 13, category: 'Топливная система', service: 'Карбюратор регулировка', price: 600 },
-            { id: 14, category: 'Топливная система', service: 'Карбюратор чистка', price: 300 },
-            { id: 15, category: 'Топливная система', service: 'Кран топливный замена', price: 300 },
-            { id: 16, category: 'Топливная система', service: 'Фильтр воздушный обслуживание', price: 200 },
-            { id: 17, category: 'Топливная система', service: 'Фильтр воздушный замена', price: 100 },
-            { id: 18, category: 'Электрооборудование', service: 'Аккумулятор проверка заряда', price: 100 },
-            { id: 19, category: 'Электрооборудование', service: 'Жгут проводки замена', price: 600 },
-            { id: 20, category: 'Электрооборудование', service: 'Замена ламп головного света и габаритов', price: 300 },
-            { id: 21, category: 'Электрооборудование', service: 'Замок зажигания замена', price: 200 },
-            { id: 22, category: 'Электрооборудование', service: 'Катушка зажигания замена', price: 300 },
-            { id: 23, category: 'Электрооборудование', service: 'Кнопка стоп/пуск замена', price: 200 },
-            { id: 24, category: 'Электрооборудование', service: 'Коммутатор замена', price: 200 },
-            { id: 25, category: 'Электрооборудование', service: 'Предохранитель замена', price: 100 },
-            { id: 26, category: 'Электрооборудование', service: 'Фара замена', price: 300 },
-            { id: 27, category: 'Ходовая часть', service: 'Переборка передней вилки', price: 2000 },
-            { id: 28, category: 'Ходовая часть', service: 'Амортизатор задний снятие-установка', price: 500 },
-            { id: 29, category: 'Ходовая часть', service: 'Амортизатор задний подкачка', price: 100 },
-            { id: 30, category: 'Ходовая часть', service: 'Регулировка подвески', price: 500 },
-            { id: 31, category: 'Ходовая часть', service: 'Прогрессия переборка', price: 1000 },
-            { id: 32, category: 'Ходовая часть', service: 'Замена подшипников рулевой колонки', price: 1000 },
-            { id: 33, category: 'Ходовая часть', service: 'Замена подшипников переднего колеса (смазка)', price: 500 },
-            { id: 34, category: 'Ходовая часть', service: 'Замена подшипников заднего колеса (смазка)', price: 500 },
-            { id: 35, category: 'Ходовая часть', service: 'Протяжка спиц колеса', price: 500 },
-            { id: 36, category: 'Трансмиссия/привод', service: 'Цепь приводная чистка', price: 400 },
-            { id: 37, category: 'Трансмиссия/привод', service: 'Цепь приводная регулировка', price: 100 },
-            { id: 38, category: 'Трансмиссия/привод', service: 'Цепь приводная смазка', price: 150 },
-            { id: 39, category: 'Трансмиссия/привод', service: 'Звезда ведомая замена', price: 200 },
-            { id: 40, category: 'Трансмиссия/привод', service: 'Звезда ведущая замена', price: 100 },
-            { id: 41, category: 'Трансмиссия/привод', service: 'Ловушка цепи замена', price: 100 },
-            { id: 42, category: 'Трансмиссия/привод', service: 'Ролик цепи замена', price: 100 },
-            { id: 43, category: 'Трансмиссия/привод', service: 'Слайдер цепи замена', price: 100 },
-            { id: 44, category: 'Двигатель', service: 'Переборка ГБЦ', price: 2000 },
-            { id: 45, category: 'Двигатель', service: 'Расточка ГБЦ', price: 2000 },
-            { id: 46, category: 'Двигатель', service: 'Регулировка зазоров клапанов', price: 300 },
-            { id: 47, category: 'Двигатель', service: 'Замена масла в ДВС + фильтр', price: 300 },
-            { id: 48, category: 'Двигатель', service: 'Корзина сцепления переборка (замена дисков)', price: 1000 },
-            { id: 49, category: 'Двигатель', service: 'Обгонная муфта замена', price: 500 },
-            { id: 50, category: 'Двигатель', service: 'Переборка двигателя', price: 1500 },
-            { id: 51, category: 'Двигатель', service: 'Генератор замена', price: 500 },
-            { id: 52, category: 'Двигатель', service: 'Сальник генератора замена', price: 500 },
-            { id: 53, category: 'Двигатель', service: 'ЦПГ замена', price: 1000 },
-            { id: 54, category: 'Диагностика и обслуживание', service: 'Протяжка техники', price: 1500 },
-            { id: 55, category: 'Диагностика и обслуживание', service: 'Комплексное ТО', price: 3000 },
-          ]);
-          const [issuePatterns, setIssuePatterns] = hatch.useStoredState('issuePatterns', {
-            'wheel': 'Easy',
-            'brake': 'Medium',
-            'engine': 'Hard',
-            'oil': 'Easy'
-          });
-
-          const translations = {
-            ru: {
-              login: 'Войти',
-              register: 'Регистрация',
-              phone: 'Телефон',
-              password: 'Пароль',
-              fullName: 'Полное имя',
-              bookService: 'Записаться на сервис',
-              priceList: 'Прайс-лист',
-              dashboard: 'Панель управления',
-              logout: 'Выйти',
-              vehicleType: 'Тип транспорта',
-              motorcycle: 'Мотоцикл',
-              quad: 'Квадроцикл',
-              issueDescription: 'Описание проблемы',
-              preferredDate: 'Желаемая дата',
-              isUrgent: 'Срочный ремонт (+500 руб)',
-              submit: 'Отправить',
-              edit: 'Редактировать',
-              delete: 'Удалить',
-              block: 'Заблокировать',
-              unblock: 'Разблокировать',
-              difficulty: 'Сложность',
-              easy: 'Легко',
-              medium: 'Средне',
-              hard: 'Сложно',
-              laborCost: 'Стоимость работ',
-              partsCost: 'Стоимость запчастей',
-              totalCost: 'Общая стоимость',
-              clientSide: 'Клиентская часть',
-              adminSide: 'Админ панель',
-              myBookings: 'Мои заказы',
-              bookingStatus: 'Статус заказа',
-              pending: 'В обработке',
-              confirmed: 'Подтверждён',
-              rejected: 'Отклонён',
-              completed: 'Выполнен',
-              confirm: 'Подтвердить',
-              reject: 'Отклонить',
-              finalCost: 'Итоговая стоимость',
-              bookingDetails: 'Детали заказа',
-              userBlocked: 'Пользователь заблокирован',
-              clickHint: 'Нажмите здесь',
-              fillAllFields: 'Заполните все поля',
-              chooseVehicle: 'Выберите тип транспорта',
-              enterDescription: 'Опишите проблему',
-              selectDate: 'Выберите дату и время',
-              bookingSubmitted: 'Заказ успешно отправлен!',
-              bookingConfirmed: 'Заказ подтверждён',
-              bookingRejected: 'Заказ отклонён',
-              userBlockedMessage: 'Пользователь заблокирован',
-              userUnblockedMessage: 'Пользователь разблокирован'
-            }
-          };
-
-          const t = (key) => translations[language][key] || key;
-
-          // Функции для работы с базой данных
-          const loadUsers = async () => {
-            try {
-              const { data, error } = await supabase
-                .from('users')
-                .select('*');
-              if (error) throw error;
-              setUsers(data || []);
-            } catch (error) {
-              console.error('Ошибка загрузки пользователей:', error);
-            }
-          };
-
-          const loadBookings = async () => {
-            try {
-              const { data, error } = await supabase
-                .from('bookings')
-                .select('*')
-                .order('created_at', { ascending: false });
-              if (error) throw error;
-              setBookings(data || []);
-            } catch (error) {
-              console.error('Ошибка загрузки заказов:', error);
-            }
-          };
-
-          const saveUser = async (userData) => {
-            try {
-              const { data, error } = await supabase
-                .from('users')
-                .insert([{
-                  full_name: userData.fullName,
-                  phone: userData.phone,
-                  user_type: userData.type,
-                  is_blocked: userData.isBlocked || false
-                }])
-                .select()
-                .single();
-              if (error) throw error;
-              await loadUsers();
-              return data;
-            } catch (error) {
-              console.error('Ошибка сохранения пользователя:', error);
-              return null;
-            }
-          };
-
-          const saveBooking = async (bookingData) => {
-            try {
-              const { data, error } = await supabase
-                .from('bookings')
-                .insert([{
-                  user_id: bookingData.userId,
-                  user_name: bookingData.userName,
-                  user_phone: bookingData.userPhone,
-                  vehicle_type: bookingData.vehicleType,
-                  issue_description: bookingData.issueDescription,
-                  preferred_date: bookingData.preferredDate,
-                  is_urgent: bookingData.isUrgent,
-                  difficulty: bookingData.difficulty,
-                  labor_cost: bookingData.laborCost || 0,
-                  parts_cost: bookingData.partsCost || 0,
-                  status: bookingData.status || 'pending'
-                }])
-                .select()
-                .single();
-              if (error) throw error;
-              await loadBookings();
-              return data;
-            } catch (error) {
-              console.error('Ошибка сохранения заказа:', error);
-              return null;
-            }
-          };
-
-          const updateBookingInDB = async (bookingId, updates) => {
-            try {
-              const { error } = await supabase
-                .from('bookings')
-                .update({
-                  status: updates.status,
-                  difficulty: updates.difficulty,
-                  labor_cost: updates.laborCost,
-                  parts_cost: updates.partsCost
-                })
-                .eq('id', bookingId);
-              if (error) throw error;
-              await loadBookings();
-            } catch (error) {
-              console.error('Ошибка обновления заказа:', error);
-            }
-          };
-
-          const deleteBookingFromDB = async (bookingId) => {
-            try {
-              const { error } = await supabase
-                .from('bookings')
-                .delete()
-                .eq('id', bookingId);
-              if (error) throw error;
-              await loadBookings();
-            } catch (error) {
-              console.error('Ошибка удаления заказа:', error);
-            }
-          };
-
-          const updateUserInDB = async (userId, updates) => {
-            try {
-              const { error } = await supabase
-                .from('users')
-                .update({ is_blocked: updates.isBlocked })
-                .eq('id', userId);
-              if (error) throw error;
-              await loadUsers();
-            } catch (error) {
-              console.error('Ошибка обновления пользователя:', error);
-            }
-          };
-
-          // Загружаем данные при загрузке компонента
-          React.useEffect(() => {
-            loadUsers();
-            loadBookings();
-          }, []);
-
-          const showAnimatedHint = (hintKey) => {
-            setShowHint(hintKey);
-            setTimeout(() => setShowHint(''), 3000);
-          };
-
-          const predictDifficulty = (description) => {
-            const desc = description.toLowerCase();
-            for (const [pattern, difficulty] of Object.entries(issuePatterns)) {
-              if (desc.includes(pattern)) {
-                return difficulty;
-              }
-            }
-            return 'Medium';
-          };
-
-          const LoginScreen = () => {
-            const [phone, setPhone] = React.useState('');
-            const [password, setPassword] = React.useState('');
-            const [isRegister, setIsRegister] = React.useState(false);
-            const [fullName, setFullName] = React.useState('');
-
-            const handleAuth = async () => {
-              if (isRegister) {
-                const newUser = await saveUser({
-                  fullName,
-                  phone,
-                  type: userType,
-                  isBlocked: false
-                });
-                if (newUser) {
-                  setCurrentUser({
-                    id: newUser.id,
-                    fullName: newUser.full_name,
-                    phone: newUser.phone,
-                    type: newUser.user_type
-                  });
-                }
-              } else {
-                // Demo login
-                if (userType === 'admin' && phone === '88005553535') {
-                  setCurrentUser({ id: 1, fullName: 'Администратор', phone, type: 'admin' });
-                } else {
-                  // Check if user exists and is not blocked
-                  const existingUser = users.find(u => u.phone === phone && u.user_type === userType);
-                  if (existingUser && existingUser.is_blocked) {
-                    alert(t('userBlocked'));
-                    return;
-                  }
-                  if (existingUser) {
-                    setCurrentUser({
-                      id: existingUser.id,
-                      fullName: existingUser.full_name,
-                      phone: existingUser.phone,
-                      type: existingUser.user_type
-                    });
-                  } else {
-                    setCurrentUser({ id: 2, fullName: 'Демо пользователь', phone, type: 'client' });
-                  }
-                }
-              }
-              setCurrentScreen(userType === 'admin' ? 'dashboard' : 'booking');
-            };
-
-            return (
-              <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-2xl font-bold">MotoService</h1>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setDarkMode(!darkMode)}
-                        className="px-3 py-1 rounded-full bg-gray-200 text-gray-800 text-sm"
-                      >
-                        {darkMode ? '☀️' : '🌙'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="max-w-sm mx-auto">
-                    <div className="flex mb-6 bg-gray-200 rounded-lg p-1">
-                      <button
-                        onClick={() => setUserType('client')}
-                        className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                          userType === 'client' 
-                            ? 'bg-white text-blue-600 shadow-sm' 
-                            : 'text-gray-600'
-                        }`}
-                      >
-                        {t('clientSide')}
-                      </button>
-                      <button
-                        onClick={() => setUserType('admin')}
-                        className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                          userType === 'admin' 
-                            ? 'bg-white text-blue-600 shadow-sm' 
-                            : 'text-gray-600'
-                        }`}
-                      >
-                        {t('adminSide')}
-                      </button>
-                    </div>
-
-                    <div className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
-                      <h2 className="text-xl font-semibold mb-6 text-center">
-                        {isRegister ? t('register') : t('login')}
-                      </h2>
-
-                      {isRegister && (
-                        <input
-                          type="text"
-                          placeholder={t('fullName')}
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          className={`w-full p-4 rounded-xl mb-4 border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                        />
-                      )}
-
-                      <input
-                        type="tel"
-                        placeholder={t('phone')}
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className={`w-full p-4 rounded-xl mb-4 border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      />
-
-                      <input
-                        type="password"
-                        placeholder={t('password')}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className={`w-full p-4 rounded-xl mb-6 border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      />
-
-                      <button
-                        onClick={handleAuth}
-                        className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
-                      >
-                        {isRegister ? t('register') : t('login')}
-                      </button>
-
-                      <p className="text-center mt-4 text-sm">
-                        {isRegister ? "Уже есть аккаунт?" : "Нет аккаунта?"}
-                        <button
-                          onClick={() => setIsRegister(!isRegister)}
-                          className="text-blue-600 ml-1 font-medium"
-                        >
-                          {isRegister ? t('login') : t('register')}
-                        </button>
-                      </p>
-
-                      {userType === 'admin' && !isRegister && (
-                        <p className="text-xs text-gray-500 mt-4 text-center">
-                          Демо: 88005553535 / любой пароль
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          };
-
-          // Остальные компоненты остаются те же...
-          const BookingScreen = () => {
-            const [vehicleType, setVehicleType] = React.useState('motorcycle');
-            const [issueDescription, setIssueDescription] = React.useState('');
-            const [preferredDate, setPreferredDate] = React.useState('');
-            const [isUrgent, setIsUrgent] = React.useState(false);
-            const [predictedDifficulty, setPredictedDifficulty] = React.useState('');
-
-            React.useEffect(() => {
-              if (issueDescription.length > 3) {
-                setPredictedDifficulty(predictDifficulty(issueDescription));
-              }
-            }, [issueDescription]);
-
-            const handleSubmit = async () => {
-              if (!issueDescription || !preferredDate) {
-                showAnimatedHint('fillAllFields');
-                return;
-              }
-              
-              const newBooking = await saveBooking({
-                userId: currentUser.id,
-                userPhone: currentUser.phone,
-                userName: currentUser.fullName,
-                vehicleType,
-                issueDescription,
-                preferredDate,
-                isUrgent,
-                difficulty: predictedDifficulty,
-                laborCost: 0,
-                partsCost: 0,
-                status: 'pending'
-              });
-              
-              if (newBooking) {
-                alert(t('bookingSubmitted'));
-                setIssueDescription('');
-                setPreferredDate('');
-                setIsUrgent(false);
-              }
-            };
-
-            return (
-              <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-xl font-bold">{t('bookService')}</h1>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setCurrentScreen('myBookings')}
-                        className="text-blue-600 font-medium"
-                      >
-                        {t('myBookings')}
-                      </button>
-                      <button
-                        onClick={() => setCurrentScreen('priceList')}
-                        className="text-blue-600 font-medium"
-                      >
-                        {t('priceList')}
-                      </button>
-                    </div>
-                  </div>
-
-                  {showHint && (
-                    <div className="mb-4 p-3 bg-orange-100 border border-orange-300 rounded-lg text-orange-800 text-sm animate-pulse">
-                      {t(showHint)}
-                    </div>
-                  )}
-
-                  <div className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg mb-6`}>
-                    <div className="mb-4 relative">
-                      <label className="block text-sm font-medium mb-2">
-                        {t('vehicleType')}
-                        <span className="text-blue-600 ml-1 cursor-pointer" onClick={() => showAnimatedHint('chooseVehicle')}>ℹ️</span>
-                      </label>
-                      <div className="flex gap-4">
-                        <button
-                          onClick={() => setVehicleType('motorcycle')}
-                          className={`flex-1 py-3 px-4 rounded-xl border-2 transition-colors ${
-                            vehicleType === 'motorcycle'
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-gray-200 text-gray-600'
-                          }`}
-                        >
-                          🏍️ {t('motorcycle')}
-                        </button>
-                        <button
-                          onClick={() => setVehicleType('quad')}
-                          className={`flex-1 py-3 px-4 rounded-xl border-2 transition-colors ${
-                            vehicleType === 'quad'
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-gray-200 text-gray-600'
-                          }`}
-                        >
-                          🛵 {t('quad')}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium mb-2">
-                        {t('issueDescription')}
-                        <span className="text-blue-600 ml-1 cursor-pointer" onClick={() => showAnimatedHint('enterDescription')}>ℹ️</span>
-                      </label>
-                      <textarea
-                        value={issueDescription}
-                        onChange={(e) => setIssueDescription(e.target.value)}
-                        className={`w-full p-4 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                        rows="4"
-                        placeholder="Опишите проблему с вашим транспортом..."
-                      />
-                      {predictedDifficulty && (
-                        <p className="text-sm text-blue-600 mt-2">
-                          Предполагаемая сложность: {t(predictedDifficulty.toLowerCase())}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium mb-2">
-                        {t('preferredDate')}
-                        <span className="text-blue-600 ml-1 cursor-pointer" onClick={() => showAnimatedHint('selectDate')}>ℹ️</span>
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={preferredDate}
-                        onChange={(e) => setPreferredDate(e.target.value)}
-                        className={`w-full p-4 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      />
-                    </div>
-
-                    <div className="mb-6">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={isUrgent}
-                          onChange={(e) => setIsUrgent(e.target.checked)}
-                          className="mr-3 w-5 h-5 text-blue-600"
-                        />
-                        <span className="text-sm">{t('isUrgent')}</span>
-                      </label>
-                    </div>
-
-                    <button
-                      onClick={handleSubmit}
-                      disabled={!issueDescription || !preferredDate}
-                      className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-                    >
-                      {t('submit')}
-                    </button>
-                  </div>
-
+        return (
+          <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-8">
+                <h1 className="text-2xl font-bold">MotoService</h1>
+                <div className="flex gap-2">
                   <button
-                    onClick={() => {
-                      setCurrentUser(null);
-                      setCurrentScreen('login');
-                    }}
-                    className="w-full text-red-600 py-3 font-medium"
+                    onClick={() => setDarkMode(!darkMode)}
+                    className="px-3 py-1 rounded-full bg-gray-200 text-gray-800 text-sm"
                   >
-                    {t('logout')}
+                    {darkMode ? '☀️' : '🌙'}
                   </button>
                 </div>
               </div>
-            );
-          };
 
-          // Остальные экраны можно добавить аналогично...
-          const MyBookingsScreen = () => {
-            const userBookings = bookings.filter(booking => booking.user_id === currentUser.id);
-
-            return (
-              <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-xl font-bold">{t('myBookings')}</h1>
-                    <button
-                      onClick={() => setCurrentScreen('booking')}
-                      className="text-blue-600 font-medium"
-                    >
-                      ← Назад
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    {userBookings.length === 0 ? (
-                      <div className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg text-center`}>
-                        <p className="text-gray-500">У вас пока нет заказов</p>
-                      </div>
-                    ) : (
-                      userBookings.map(booking => (
-                        <div key={booking.id} className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-                          <h3 className="font-semibold text-lg">{booking.vehicle_type === 'motorcycle' ? 'Мотоцикл' : 'Квадроцикл'}</h3>
-                          <p className="text-gray-600 text-sm">{booking.issue_description}</p>
-                          <span className="text-sm text-gray-500">{booking.status}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
+              <div className="max-w-sm mx-auto">
+                <div className="flex mb-6 bg-gray-200 rounded-lg p-1">
+                  <button
+                    onClick={() => setUserType('client')}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      userType === 'client' 
+                        ? 'bg-white text-blue-600 shadow-sm' 
+                        : 'text-gray-600'
+                    }`}
+                  >
+                    {t('clientSide')}
+                  </button>
+                  <button
+                    onClick={() => setUserType('admin')}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      userType === 'admin' 
+                        ? 'bg-white text-blue-600 shadow-sm' 
+                        : 'text-gray-600'
+                    }`}
+                  >
+                    {t('adminSide')}
+                  </button>
                 </div>
-              </div>
-            );
-          };
 
-          const PriceListScreen = () => {
-            const categories = [...new Set(priceList.map(item => item.category))];
+                <div className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
+                  <h2 className="text-xl font-semibold mb-6 text-center">
+                    {isRegister ? t('register') : t('login')}
+                  </h2>
 
-            return (
-              <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-xl font-bold">{t('priceList')}</h1>
-                    <button
-                      onClick={() => setCurrentScreen('booking')}
-                      className="text-blue-600 font-medium"
-                    >
-                      ← Назад
-                    </button>
-                  </div>
+                  {isRegister && (
+                    <input
+                      type="text"
+                      placeholder={t('fullName')}
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className={`w-full p-4 rounded-xl mb-4 border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    />
+                  )}
 
-                  {categories.map(category => (
-                    <div key={category} className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg mb-4`}>
-                      <h2 className="text-lg font-semibold mb-4">{category}</h2>
-                      {priceList
-                        .filter(item => item.category === category)
-                        .map(item => (
-                          <div key={item.id} className="flex justify-between items-center py-3 border-b border-gray-200 last:border-b-0">
-                            <span>{item.service}</span>
-                            <span className="font-semibold">{item.price} ₽</span>
-                          </div>
-                        ))}
+                  <input
+                    type="tel"
+                    placeholder={t('phone')}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className={`w-full p-4 rounded-xl mb-4 border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  />
+
+                  <input
+                    type="password"
+                    placeholder={t('password')}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`w-full p-4 rounded-xl mb-6 border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  />
+
+                  {error && (
+                    <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-800 text-sm">
+                      {error}
                     </div>
-                  ))}
-                </div>
-              </div>
-            );
-          };
+                  )}
 
-          const AdminDashboard = () => {
-            return (
-              <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-xl font-bold">{t('dashboard')}</h1>
+                  <button
+                    onClick={handleAuth}
+                    className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+                  >
+                    {isRegister ? t('register') : t('login')}
+                  </button>
+
+                  <p className="text-center mt-4 text-sm">
+                    {isRegister ? "Уже есть аккаунт?" : "Нет аккаунта?"}
                     <button
                       onClick={() => {
-                        setCurrentUser(null);
-                        setCurrentScreen('login');
+                        setIsRegister(!isRegister);
+                        setError('');
                       }}
-                      className="text-red-600 font-medium"
+                      className="text-blue-600 ml-1 font-medium"
                     >
-                      {t('logout')}
+                      {isRegister ? t('login') : t('register')}
+                    </button>
+                  </p>
+
+                  {userType === 'admin' && !isRegister && (
+                    <div className="text-xs text-gray-500 mt-4 text-center">
+                      <p>Права администратора выдаются</p>
+                      <p>через панель управления Supabase</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const BookingScreen = () => {
+        const [vehicleType, setVehicleType] = React.useState('motorcycle');
+        const [issueDescription, setIssueDescription] = React.useState('');
+        const [preferredDate, setPreferredDate] = React.useState('');
+        const [isUrgent, setIsUrgent] = React.useState(false);
+        const [predictedDifficulty, setPredictedDifficulty] = React.useState('');
+
+        React.useEffect(() => {
+          if (issueDescription.length > 3) {
+            setPredictedDifficulty(predictDifficulty(issueDescription));
+          }
+        }, [issueDescription]);
+
+        const handleSubmit = async () => {
+          if (!issueDescription || !preferredDate) {
+            showAnimatedHint('fillAllFields');
+            return;
+          }
+          
+          const newBooking = await saveBooking({
+            userId: currentUser.id,
+            userPhone: currentUser.phone,
+            userName: currentUser.fullName,
+            vehicleType,
+            issueDescription,
+            preferredDate,
+            isUrgent,
+            difficulty: predictedDifficulty,
+            laborCost: 0,
+            partsCost: 0,
+            status: 'pending'
+          });
+          
+          if (newBooking) {
+            alert(t('bookingSubmitted'));
+            setIssueDescription('');
+            setPreferredDate('');
+            setIsUrgent(false);
+          }
+        };
+
+        return (
+          <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h1 className="text-xl font-bold">{t('bookService')}</h1>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentScreen('myBookings')}
+                    className="text-blue-600 font-medium"
+                  >
+                    {t('myBookings')}
+                  </button>
+                  <button
+                    onClick={() => setCurrentScreen('priceList')}
+                    className="text-blue-600 font-medium"
+                  >
+                    {t('priceList')}
+                  </button>
+                </div>
+              </div>
+
+              {showHint && (
+                <div className="mb-4 p-3 bg-orange-100 border border-orange-300 rounded-lg text-orange-800 text-sm animate-pulse">
+                  {t(showHint)}
+                </div>
+              )}
+
+              <div className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg mb-6`}>
+                <div className="mb-4 relative">
+                  <label className="block text-sm font-medium mb-2">
+                    {t('vehicleType')}
+                    <span className="text-blue-600 ml-1 cursor-pointer" onClick={() => showAnimatedHint('chooseVehicle')}>ℹ️</span>
+                  </label>
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => setVehicleType('motorcycle')}
+                      className={`flex-1 py-3 px-4 rounded-xl border-2 transition-colors ${
+                        vehicleType === 'motorcycle'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 text-gray-600'
+                      }`}
+                    >
+                      🏍️ {t('motorcycle')}
+                    </button>
+                    <button
+                      onClick={() => setVehicleType('quad')}
+                      className={`flex-1 py-3 px-4 rounded-xl border-2 transition-colors ${
+                        vehicleType === 'quad'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 text-gray-600'
+                      }`}
+                    >
+                      🛵 {t('quad')}
                     </button>
                   </div>
+                </div>
 
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2">
+                    {t('issueDescription')}
+                    <span className="text-blue-600 ml-1 cursor-pointer" onClick={() => showAnimatedHint('enterDescription')}>ℹ️</span>
+                  </label>
+                  <textarea
+                    value={issueDescription}
+                    onChange={(e) => setIssueDescription(e.target.value)}
+                    className={`w-full p-4 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    rows="4"
+                    placeholder="Опишите проблему с вашим транспортом..."
+                  />
+                  {predictedDifficulty && (
+                    <p className="text-sm text-blue-600 mt-2">
+                      Предполагаемая сложность: {t(predictedDifficulty.toLowerCase())}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2">
+                    {t('preferredDate')}
+                    <span className="text-blue-600 ml-1 cursor-pointer" onClick={() => showAnimatedHint('selectDate')}>ℹ️</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={preferredDate}
+                    onChange={(e) => setPreferredDate(e.target.value)}
+                    className={`w-full p-4 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  />
+                </div>
+
+                <div className="mb-6">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={isUrgent}
+                      onChange={(e) => setIsUrgent(e.target.checked)}
+                      className="mr-3 w-5 h-5 text-blue-600"
+                    />
+                    <span className="text-sm">{t('isUrgent')}</span>
+                  </label>
+                </div>
+
+                <button
+                  onClick={handleSubmit}
+                  disabled={!issueDescription || !preferredDate}
+                  className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                >
+                  {t('submit')}
+                </button>
+              </div>
+
+              <button
+                onClick={() => {
+                  setCurrentUser(null);
+                  setCurrentScreen('login');
+                }}
+                className="w-full text-red-600 py-3 font-medium"
+              >
+                {t('logout')}
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      const MyBookingsScreen = () => {
+        const userBookings = bookings.filter(booking => booking.user_id === currentUser.id);
+
+        const getStatusColor = (status) => {
+          switch(status) {
+            case 'pending': return 'bg-yellow-200 text-yellow-800';
+            case 'confirmed': return 'bg-green-200 text-green-800';
+            case 'rejected': return 'bg-red-200 text-red-800';
+            case 'completed': return 'bg-blue-200 text-blue-800';
+            default: return 'bg-gray-200 text-gray-800';
+          }
+        };
+
+        return (
+          <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h1 className="text-xl font-bold">{t('myBookings')}</h1>
+                <button
+                  onClick={() => setCurrentScreen('booking')}
+                  className="text-blue-600 font-medium"
+                >
+                  ← Назад
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {userBookings.length === 0 ? (
+                  <div className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg text-center`}>
+                    <p className="text-gray-500">У вас пока нет заказов</p>
+                  </div>
+                ) : (
+                  userBookings.map(booking => (
+                    <div key={booking.id} className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="font-semibold text-lg">{booking.vehicle_type === 'motorcycle' ? t('motorcycle') : t('quad')}</h3>
+                          <p className="text-sm text-gray-500">{new Date(booking.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                          {t(booking.status)}
+                        </span>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <p className="text-sm font-medium mb-1">Описание проблемы:</p>
+                        <p className="text-gray-600 text-sm">{booking.issue_description}</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <p className="text-sm font-medium">Сложность:</p>
+                          <p className="text-sm text-gray-600">{t(booking.difficulty?.toLowerCase())}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Дата:</p>
+                          <p className="text-sm text-gray-600">{new Date(booking.preferred_date).toLocaleString()}</p>
+                        </div>
+                      </div>
+
+                      {booking.status === 'confirmed' && (booking.labor_cost > 0 || booking.parts_cost > 0) && (
+                        <div className="border-t pt-4">
+                          <h4 className="font-medium mb-2">{t('finalCost')}:</h4>
+                          <div className="text-sm space-y-1">
+                            <div className="flex justify-between">
+                              <span>Стоимость работ:</span>
+                              <span>{booking.labor_cost} ₽</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Стоимость запчастей:</span>
+                              <span>{booking.parts_cost} ₽</span>
+                            </div>
+                            {booking.is_urgent && (
+                              <div className="flex justify-between text-orange-600">
+                                <span>Срочный ремонт:</span>
+                                <span>+500 ₽</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between font-semibold text-lg border-t pt-2">
+                              <span>Итого:</span>
+                              <span>{booking.labor_cost + booking.parts_cost + (booking.is_urgent ? 500 : 0)} ₽</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const PriceListScreen = () => {
+        const categories = [...new Set(priceList.map(item => item.category))];
+
+        return (
+          <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h1 className="text-xl font-bold">{t('priceList')}</h1>
+                <button
+                  onClick={() => setCurrentScreen('booking')}
+                  className="text-blue-600 font-medium"
+                >
+                  ← Назад
+                </button>
+              </div>
+
+              {categories.map(category => (
+                <div key={category} className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg mb-4`}>
+                  <h2 className="text-lg font-semibold mb-4">{category}</h2>
+                  {priceList
+                    .filter(item => item.category === category)
+                    .map(item => (
+                      <div key={item.id} className="flex justify-between items-center py-3 border-b border-gray-200 last:border-b-0">
+                        <span>{item.service}</span>
+                        <span className="font-semibold">{item.price} ₽</span>
+                      </div>
+                    ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      };
+
+      const AdminDashboard = () => {
+        const [selectedBooking, setSelectedBooking] = React.useState(null);
+        const [editMode, setEditMode] = React.useState(false);
+        const [activeTab, setActiveTab] = React.useState('bookings');
+
+        const updateBooking = async (bookingId, updates) => {
+          await updateBookingInDB(bookingId, updates);
+          if (updates.status === 'confirmed') {
+            alert(t('bookingConfirmed'));
+          } else if (updates.status === 'rejected') {
+            alert(t('bookingRejected'));
+          }
+        };
+
+        const deleteBooking = async (bookingId) => {
+          await deleteBookingFromDB(bookingId);
+          setSelectedBooking(null);
+        };
+
+        const toggleUserBlock = async (userId) => {
+          const user = users.find(u => u.id === userId);
+          if (user) {
+            await updateUserInDB(userId, { isBlocked: !user.is_blocked });
+            alert(user.is_blocked ? t('userUnblockedMessage') : t('userBlockedMessage'));
+          }
+        };
+
+        return (
+          <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h1 className="text-xl font-bold">{t('dashboard')}</h1>
+                <button
+                  onClick={() => {
+                    setCurrentUser(null);
+                    setCurrentScreen('login');
+                  }}
+                  className="text-red-600 font-medium"
+                >
+                  {t('logout')}
+                </button>
+              </div>
+
+              <div className="flex mb-6 bg-gray-200 rounded-lg p-1">
+                <button
+                  onClick={() => setActiveTab('bookings')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === 'bookings' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-600'
+                  }`}
+                >
+                  Заказы ({bookings.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === 'users' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-600'
+                  }`}
+                >
+                  Пользователи ({users.length})
+                </button>
+              </div>
+
+              {activeTab === 'bookings' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
                     <h2 className="text-lg font-semibold mb-4">Заказы ({bookings.length})</h2>
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
                       {bookings.map(booking => (
-                        <div key={booking.id} className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                        <div
+                          key={booking.id}
+                          onClick={() => setSelectedBooking(booking)}
+                          className={`p-4 rounded-xl cursor-pointer transition-colors ${
+                            selectedBooking?.id === booking.id
+                              ? 'bg-blue-100 border-2 border-blue-500'
+                              : darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-50 hover:bg-gray-100'
+                          }`}
+                        >
                           <div className="flex justify-between items-start mb-2">
                             <div>
                               <span className="font-medium">{booking.vehicle_type === 'motorcycle' ? 'Мотоцикл' : 'Квадроцикл'}</span>
                               <p className="text-xs text-gray-500">{booking.user_name || 'Неизвестно'}</p>
                             </div>
-                            <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded">{booking.status}</span>
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              booking.status === 'pending' ? 'bg-yellow-200 text-yellow-800' :
+                              booking.status === 'confirmed' ? 'bg-green-200 text-green-800' :
+                              booking.status === 'rejected' ? 'bg-red-200 text-red-800' :
+                              'bg-blue-200 text-blue-800'
+                            }`}>
+                              {t(booking.status)}
+                            </span>
                           </div>
                           <p className="text-sm text-gray-600 truncate">{booking.issue_description}</p>
                         </div>
                       ))}
                     </div>
                   </div>
+
+                  {selectedBooking && (
+                    <div className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+                      <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-lg font-semibold">Детали заказа</h2>
+                        <div className="flex gap-2">
+                          {selectedBooking.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => updateBooking(selectedBooking.id, { status: 'confirmed' })}
+                                className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm"
+                              >
+                                {t('confirm')}
+                              </button>
+                              <button
+                                onClick={() => updateBooking(selectedBooking.id, { status: 'rejected' })}
+                                className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm"
+                              >
+                                {t('reject')}
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => deleteBooking(selectedBooking.id)}
+                            className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm"
+                          >
+                            {t('delete')}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Клиент</label>
+                          <p className="text-gray-600">{selectedBooking.user_name} ({selectedBooking.user_phone})</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Описание проблемы</label>
+                          <p className="text-gray-600">{selectedBooking.issue_description}</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-1">{t('laborCost')} (₽)</label>
+                          <input
+                            type="number"
+                            value={selectedBooking.labor_cost}
+                            onChange={(e) => updateBooking(selectedBooking.id, { laborCost: parseInt(e.target.value) || 0 })}
+                            className={`w-full p-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-1">{t('partsCost')} (₽)</label>
+                          <input
+                            type="number"
+                            value={selectedBooking.parts_cost}
+                            onChange={(e) => updateBooking(selectedBooking.id, { partsCost: parseInt(e.target.value) || 0 })}
+                            className={`w-full p-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}
+                          />
+                        </div>
+
+                        <div className="pt-4 border-t">
+                          <p className="text-lg font-semibold">
+                            {t('totalCost')}: {selectedBooking.labor_cost + selectedBooking.parts_cost + (selectedBooking.is_urgent ? 500 : 0)} ₽
+                          </p>
+                          {selectedBooking.is_urgent && (
+                            <p className="text-sm text-orange-600">+500 ₽ доплата за срочность</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          };
-
-          const renderScreen = () => {
-            if (!currentUser) return <LoginScreen />;
-            
-            switch (currentScreen) {
-              case 'booking':
-                return <BookingScreen />;
-              case 'myBookings':
-                return <MyBookingsScreen />;
-              case 'priceList':
-                return <PriceListScreen />;
-              case 'dashboard':
-                return <AdminDashboard />;
-              default:
-                return <LoginScreen />;
-            }
-          };
-
-          return (
-            <div className="max-w-md mx-auto min-h-screen">
-              {renderScreen()}
+              ) : (
+                <div className={`rounded-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+                  <h2 className="text-lg font-semibold mb-4">Управление пользователями</h2>
+                  <div className="space-y-3">
+                    {users.filter(user => user.user_type === 'client').map(user => (
+                      <div
+                        key={user.id}
+                        className={`p-4 rounded-xl border-2 transition-colors ${
+                          user.is_blocked 
+                            ? 'border-red-300 bg-red-50' 
+                            : darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h3 className="font-medium">{user.full_name}</h3>
+                            <p className="text-sm text-gray-500">{user.phone}</p>
+                            <p className="text-xs text-gray-400">
+                              Заказов: {bookings.filter(b => b.user_id === user.id).length}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {user.is_blocked && (
+                              <span className="px-2 py-1 bg-red-200 text-red-800 rounded-full text-xs">
+                                Заблокирован
+                              </span>
+                            )}
+                            <button
+                              onClick={() => toggleUserBlock(user.id)}
+                              className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                                user.is_blocked 
+                                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                                  : 'bg-red-600 text-white hover:bg-red-700'
+                              }`}
+                            >
+                              {user.is_blocked ? t('unblock') : t('block')}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          );
-        };
+          </div>
+        );
+      };
 
-        ReactDOM.render(React.createElement(MotoServiceApp), document.getElementById('root'));
-    </script>
-</body>
-</html>
+      const renderScreen = () => {
+        if (!currentUser) return <LoginScreen />;
+        
+        switch (currentScreen) {
+          case 'booking':
+            return <BookingScreen />;
+          case 'myBookings':
+            return <MyBookingsScreen />;
+          case 'priceList':
+            return <PriceListScreen />;
+          case 'dashboard':
+            return <AdminDashboard />;
+          default:
+            return <LoginScreen />;
+        }
+      };
+
+      return (
+        <div className="max-w-md mx-auto min-h-screen">
+          {renderScreen()}
+        </div>
+      );
+    };
+
+    ReactDOM.render(React.createElement(MotoServiceApp), document.getElementById('root'));
+</script>
